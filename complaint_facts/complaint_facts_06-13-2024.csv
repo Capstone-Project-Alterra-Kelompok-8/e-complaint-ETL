@@ -1,0 +1,8 @@
+user_id,complaint_id,complaint_process_id,admin_id,total_complaints,sum_verification,sum_onprogress,sum_resolved,sum_rejected,sum_deleted,sum_public,sum_private,process_time,user_rejected_complaints,user_resolved_complaints,last_complaints
+1,C-8ksh&s9280,1,2,13,3,2,1,1,0,4,3,0.0,0,1,C-8ksh&s9280
+1,C-8ksh&s9280,2,2,13,3,2,1,1,0,4,3,0.0,0,1,C-8ksh&s9280
+1,C-8ksh&s9280,3,2,13,3,2,1,1,0,4,3,0.0,0,1,C-8ksh&s9280
+2,C-81jas92581,4,3,13,3,2,1,1,0,4,3,,0,0,C-cafdc19358
+3,C-123j9ak280,7,4,13,3,2,1,1,0,4,3,,1,0,C-271j9ak280
+3,C-271j9ak280,5,3,13,3,2,1,1,0,4,3,,1,0,C-271j9ak280
+3,C-271j9ak280,6,3,13,3,2,1,1,0,4,3,,1,0,C-271j9ak280
