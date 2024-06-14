@@ -1,0 +1,13 @@
+user_id,complaint_id,complaint_process_id,admin_id,total_complaints,sum_verification,sum_onprogress,sum_resolved,sum_rejected,sum_deleted,sum_public,sum_private,process_time,user_rejected_complaints,user_resolved_complaints,last_complaints
+1,C-81j9aK9280,1,1,5,3,2,1,1,0,3,2,0.0,0,1,C-8ksh&s9280
+1,C-8ksh&s9280,2,1,5,3,2,1,1,0,3,2,0.0,0,1,C-8ksh&s9280
+1,C-8ksh&s9280,3,2,5,3,2,1,1,0,3,2,0.0,0,1,C-8ksh&s9280
+1,C-8ksh&s9280,4,2,5,3,2,1,1,0,3,2,0.0,0,1,C-8ksh&s9280
+1,C-8ksh&s9280,5,2,5,3,2,1,1,0,3,2,0.0,0,1,C-8ksh&s9280
+2,C-81jas92581,6,1,5,3,2,1,1,0,3,2,0.0,0,0,C-81jas92581
+2,C-81jas92581,7,3,5,3,2,1,1,0,3,2,0.0,0,0,C-81jas92581
+3,C-123j9ak280,11,1,5,3,2,1,1,0,3,2,0.0,1,0,C-271j9ak280
+3,C-123j9ak280,12,4,5,3,2,1,1,0,3,2,0.0,1,0,C-271j9ak280
+3,C-271j9ak280,8,1,5,3,2,1,1,0,3,2,0.0,1,0,C-271j9ak280
+3,C-271j9ak280,9,3,5,3,2,1,1,0,3,2,0.0,1,0,C-271j9ak280
+3,C-271j9ak280,10,3,5,3,2,1,1,0,3,2,0.0,1,0,C-271j9ak280
