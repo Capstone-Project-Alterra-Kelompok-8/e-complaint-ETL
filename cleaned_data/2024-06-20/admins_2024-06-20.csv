@@ -1,0 +1,5 @@
+id,name,email,telephone_number,is_super_admin,created_at,updated_at,deleted_at
+1,Super Admin,super_admin@gmail.com,81234567890,1,2024-06-20 16:47:11.463,2024-06-20 16:47:11.463,
+2,Admin Pandeglang,admin_pandeglang@gmail.com,81234567890,0,2024-06-20 16:47:11.463,2024-06-20 16:47:11.463,
+3,Admin Lebak,admin_lebak@gmail.com,81234567890,0,2024-06-20 16:47:11.463,2024-06-20 16:47:11.463,
+4,Admin Serang,admin_serang@gmail.com,81234567890,0,2024-06-20 16:47:11.463,2024-06-20 16:47:11.463,

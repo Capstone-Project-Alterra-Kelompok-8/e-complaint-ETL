@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import pymysql
 from dotenv import load_dotenv
 import os
@@ -540,7 +539,7 @@ def etl_flow():
             FROM 
                 complaints
             WHERE
-                updated_at >= '{expected_start_time}'
+                updated_at = '{expected_start_time}'
         """,
         'users': f"""
             SELECT
@@ -554,7 +553,7 @@ def etl_flow():
             FROM 
                 users
             WHERE
-                updated_at >= '{expected_start_time}'
+                updated_at = '{expected_start_time}'
         """,
         'admins': f"""
             SELECT
@@ -569,7 +568,7 @@ def etl_flow():
             FROM 
                 admins
             WHERE
-                updated_at >= '{expected_start_time}'
+                updated_at = '{expected_start_time}'
         """,
         'complaint_processes': f"""
             SELECT
@@ -583,7 +582,7 @@ def etl_flow():
             FROM 
                 complaint_processes
             WHERE
-                updated_at >= '{expected_start_time}'
+                updated_at = '{expected_start_time}'
         """,
         'news': f"""
             SELECT
@@ -597,7 +596,7 @@ def etl_flow():
             FROM 
                 news
             WHERE
-                updated_at >= '{expected_start_time}'
+                updated_at = '{expected_start_time}'
         """
     }
 
