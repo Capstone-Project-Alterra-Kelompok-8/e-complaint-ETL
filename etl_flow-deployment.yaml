@@ -1,0 +1,43 @@
+###
+### A complete description of a Prefect Deployment for flow 'etl-flow'
+###
+name: etl-flow
+description: null
+version: 349b21bff42749c15de05b096cc5eaa9
+# The work queue that will handle this deployment's runs
+work_queue_name: default
+work_pool_name: etl-workflow
+tags: []
+parameters: {}
+schedule: null
+schedules: []
+is_schedule_active: null
+infra_overrides: {}
+infrastructure:
+  type: process
+  env: {}
+  labels: {}
+  name: null
+  command: null
+  stream_output: true
+  working_dir: null
+  block_type_slug: process
+  _block_type_slug: process
+
+###
+### DO NOT EDIT BELOW THIS LINE
+###
+flow_name: etl-flow
+manifest_path: null
+storage: null
+path: /home/raihan12/Documents/e-complaint-ETL
+entrypoint: main-etl.py:etl_flow
+parameter_openapi_schema:
+  title: Parameters
+  type: object
+  properties: {}
+  required: null
+  definitions: null
+timestamp: '2024-06-20T18:11:20.217826+00:00'
+triggers: []
+enforce_parameter_schema: null

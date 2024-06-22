@@ -1,7 +1,0 @@
-id,name,email,telephone_number,is_super_admin,created_at,updated_at,deleted_at
-1,Super Admin,super_admin@gmail.com,81234567890,1,2024-06-09,2024-06-09,
-2,Admin Pandeglang,admin_pandeglang@gmail.com,81234567890,0,2024-06-09,2024-06-09,
-3,Admin Lebak,admin_lebak@gmail.com,81234567890,0,2024-06-09,2024-06-09,
-4,Admin Serang,admin_serang@gmail.com,81234567890,0,2024-06-09,2024-06-09,
-5,admin coba,coba.admin@outlook.com,82155008990,0,2024-06-10,2024-06-10,
-6,admin coba1,coba.admin1@outlook.com,82155008990,0,2024-06-10,2024-06-10,2024-06-10
