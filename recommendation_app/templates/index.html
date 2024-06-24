@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complaint Response Bot</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh; 
+            padding: 20px;
+            overflow: auto; 
+        }
+        iframe {
+            width: 70%;
+            max-width: 75%;
+            height: 1200px; 
+            margin-bottom: 20px; 
+        }
+        h1 {
+            text-align: center;
+        }
+        form {
+            text-align: center;
+            margin-bottom: 20px; 
+        }
+        @media (max-width: 768px) {
+            iframe {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <iframe src="https://lookerstudio.google.com/embed/reporting/601e88b0-501a-4acd-a4d4-38b345b06258/page/N2i3D" frameborder="0" style="border:0" allowfullscreen sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+        <h1>Complaint Response Bot</h1>
+        <form method="POST">
+            <label for="id_complaint">Masukkan ID Complaint:</label>
+            <input type="text" id="id_complaint" name="id_complaint" required>
+            <button type="submit">Submit</button>
+        </form>
+
+        {% if hasil %}
+            <h2>Hasil Analisis Dan Rekomendasi Jawaban:</h2>
+            <pre>{{ hasil }}</pre>
+        {% endif %}
+    </div>
+</body>
+</html>
