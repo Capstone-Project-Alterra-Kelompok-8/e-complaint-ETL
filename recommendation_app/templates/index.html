@@ -50,6 +50,8 @@
 
         {% if hasil %}
             <h2>Hasil Analisis Dan Rekomendasi Jawaban:</h2>
+            <p><strong>Complaint ID:</strong> {{ id_complaint }}</p>
+            <p><strong>Complaint:</strong> {{ complaint }}</p>
             <pre>{{ hasil }}</pre>
         {% endif %}
     </div>

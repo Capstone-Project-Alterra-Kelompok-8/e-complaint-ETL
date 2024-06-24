@@ -18,7 +18,7 @@ Query_Results = client.query(QUERY)
 df = Query_Results.to_dataframe()
 
 client = OpenAI(
-    api_key = os.getenv("OPENAI_API_KEY"),
+    api_key=os.getenv("OPENAI_API_KEY"),
 )
 
 def generate(prompt, model="gpt-3.5-turbo", max_tokens=2048):
@@ -45,7 +45,7 @@ def recommendation(id_complaint, dataset):
     complaint = get_complaint_by_id(id_complaint, dataset)
     if not complaint:
         return "Complaint ID not found in the dataset."
-    
+
     prompt = f"""
                 Anda adalah seorang admin yang bertugas mengelola keluhan dan komplain di masyarakat wilayah provinsi di Indonesia, Suatu hari ada komplain yang masuk seperti berikut
                 {complaint}
@@ -57,15 +57,19 @@ def recommendation(id_complaint, dataset):
     formatted_result = '\n'.join(
         ' '.join(words[i:i + max_words_per_line]) for i in range(0, len(words), max_words_per_line)
     )
-    
+
     return formatted_result
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         id_complaint = request.form['id_complaint']
-        hasil = recommendation(id_complaint, df)
-        return render_template('index.html', hasil=hasil, id_complaint=id_complaint)
+        complaint = get_complaint_by_id(id_complaint, df)
+        if complaint:
+            hasil = recommendation(id_complaint, df)
+            return render_template('index.html', hasil=hasil, id_complaint=id_complaint, complaint=complaint)
+        else:
+            return render_template('index.html', hasil="Complaint ID not found in the dataset.", id_complaint=id_complaint)
     return render_template('index.html', hasil=None)
 
 if __name__ == '__main__':
