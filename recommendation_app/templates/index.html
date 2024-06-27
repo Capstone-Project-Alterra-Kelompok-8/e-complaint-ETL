@@ -3,67 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complaint Response Bot</title>
+    <title>Complaint Form</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         body {
-            margin: 0;
             font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
         }
         .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh; 
+            width: 50%;
+            margin: 50px auto;
+            background: #fff;
             padding: 20px;
-            overflow: auto; 
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
         }
-        iframe {
-            width: 70%;
-            max-width: 75%;
-            height: 1200px; 
-            margin-bottom: 20px; 
-        }
-        h1 {
+        h1, h2 {
             text-align: center;
+            color: #333;
         }
         form {
-            text-align: center;
-            margin-bottom: 20px; 
+            display: flex;
+            flex-direction: column;
         }
-        .result {
+        label {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input[type="text"], input[type="submit"] {
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input[type="submit"] {
+            background-color: #007BFF;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+        #resultContainer {
             margin-top: 20px;
-            white-space: pre-wrap;
-            max-width: 100%;
-            overflow-x: auto;
+            padding: 10px;
+            background: #e9ecef;
+            border: 1px solid #ccc;
+            border-radius: 5px;
         }
-        @media (max-width: 768px) {
-            iframe {
-                width: 100%;
-            }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            overflow: auto;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <iframe src="https://lookerstudio.google.com/embed/reporting/601e88b0-501a-4acd-a4d4-38b345b06258/page/N2i3D" frameborder="0" style="border:0" allowfullscreen sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
-        <h1>Complaint Response Bot</h1>
-        <form id="complaintForm" method="POST">
-            <label for="id_complaint">Masukkan ID Complaint:</label>
+        <h1>Complaint Form</h1>
+        <form id="complaintForm">
+            <label for="id_complaint">Complaint ID:</label>
             <input type="text" id="id_complaint" name="id_complaint" required>
-            <button type="submit">Submit</button>
+            <input type="submit" value="Submit">
         </form>
-
-        <div id="resultContainer" class="result">
-            <!-- Result will be dynamically inserted here -->
-        </div>
+        <div id="resultContainer"></div>
     </div>
-
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
     <script>
         $(document).ready(function() {
             $('#complaintForm').on('submit', function(e) {
-                e.preventDefault(); // Prevent default form submission
+                e.preventDefault(); 
 
                 var id_complaint = $('#id_complaint').val();
 

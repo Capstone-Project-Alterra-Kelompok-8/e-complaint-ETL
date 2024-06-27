@@ -1,38 +1,25 @@
 from flask import Flask, request, render_template, jsonify
 import os
 from google.cloud import bigquery
-from openai import OpenAI
-import pandas as pd
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 app = Flask(__name__)
 load_dotenv()
 
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 client = bigquery.Client()
+
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel('gemini-pro')
 
 QUERY = """
 SELECT id, description FROM `capstone-alterra-424814.dim_tables.dim_complaints` WHERE TIMESTAMP_TRUNC(updated_at, DAY) >= TIMESTAMP("2024-04-17")
 """
 Query_Results = client.query(QUERY)
 df = Query_Results.to_dataframe()
-
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-)
-
-def generate(prompt, model="gpt-3.5-turbo", max_tokens=2048):
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
-        max_tokens=max_tokens
-    )
-    return response.choices[0].message.content
 
 def get_complaint_by_id(id_complaint, dataset):
     try:
@@ -44,21 +31,22 @@ def get_complaint_by_id(id_complaint, dataset):
 def recommendation(id_complaint, dataset):
     complaint = get_complaint_by_id(id_complaint, dataset)
     if not complaint:
-        return "Complaint ID not found in the dataset.", None  # Return None for complaint
+        return "Complaint ID not found in the dataset.", None
 
     prompt = f"""
                 Anda adalah seorang admin yang bertugas mengelola keluhan dan komplain di masyarakat wilayah provinsi di Indonesia, Suatu hari ada komplain yang masuk seperti berikut
                 {complaint}
                 berdasarkan komplain tersebut apa yang akan anda jawab kepada pengadu tersebut?
             """
-    analysis_result = generate(prompt)
+    analysis_result = model.generate_content(prompt)
+    response_text = analysis_result.text
     max_words_per_line = 10
-    words = analysis_result.split()
+    words = response_text.split()
     formatted_result = '\n'.join(
         ' '.join(words[i:i + max_words_per_line]) for i in range(0, len(words), max_words_per_line)
     )
 
-    return formatted_result, complaint  # Return complaint along with formatted_result
+    return formatted_result, complaint
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -77,5 +65,3 @@ def get_recommendation():
     hasil, complaint = recommendation(id_complaint, df)
     return jsonify({'hasil': hasil, 'complaint': complaint})
 
-if __name__ == '__main__':
-    app.run(debug=True)
