@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime
 from google.cloud import bigquery
 from prefect import flow, task
+from prefect_dask.task_runners import DaskTaskRunner
 from prefect.blocks.system import Secret
 from prefect.context import get_run_context
 
@@ -84,9 +85,30 @@ def save_data(df, path):
 
 
 ## LOAD DATA TASKS
+def load_facts(file_name, data_dir, dataset_id, table_id, google_credentials, schema):
+    client = bigquery.Client.from_service_account_json(google_credentials)
+    file_path = os.path.join(data_dir, file_name)
+    
+    partition_date_ymd = file_name.split('_')[-1].split('.')[0]
+    partition_datetime = datetime.strptime(partition_date_ymd, '%Y-%m-%d')
 
-@task
-def load_complaint_facts(file_name, data_dir, dataset_id, table_id, google_credentials):
+    dataframe = pd.read_csv(file_path)
+    dataframe['updated_at'] = partition_datetime
+
+    table_ref = f"{dataset_id}.{table_id}"
+
+    job_config = bigquery.LoadJobConfig(
+        create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
+        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+        schema=schema,
+        source_format=bigquery.SourceFormat.CSV
+    )
+
+    load_job = client.load_table_from_dataframe(dataframe, table_ref, job_config=job_config)
+    load_job.result()
+    print(f'Loaded {load_job.output_rows} rows into {table_ref}')
+
+def load_data(file_name, data_dir, dataset_id, table_id, google_credentials, schema):
     client = bigquery.Client.from_service_account_json(google_credentials)
     
     partition_date_ymd = file_name.split('_')[-1].split('.')[0]
@@ -98,30 +120,16 @@ def load_complaint_facts(file_name, data_dir, dataset_id, table_id, google_crede
     file_path = os.path.join(data_dir, file_name)
     dataframe = pd.read_csv(file_path)
     
-    dataframe['updated_at'] = partition_datetime
-
+    for col in ['created_at', 'updated_at', 'deleted_at']:
+        if col in dataframe.columns:
+            dataframe[col] = pd.to_datetime(dataframe[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
+    
+    dataframe['updated_at'] = partition_datetime.strftime('%Y-%m-%d %H:%M:%S')
+    
     job_config = bigquery.LoadJobConfig(
         create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        schema=[
-            bigquery.SchemaField("user_id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("complaint_id", "STRING", "NULLABLE"),
-            bigquery.SchemaField("complaint_process_id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("admin_id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("total_complaints", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sum_verification", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sum_onprogress", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sum_resolved", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sum_rejected", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sum_deleted", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sum_public", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("sum_private", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("process_time", "FLOAT", "NULLABLE"),
-            bigquery.SchemaField("user_rejected_complaints", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("user_resolved_complaints", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("last_complaints", "STRING", "NULLABLE"),
-            bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
-        ],
+        schema=schema,
         time_partitioning=bigquery.TimePartitioning(
             type_=bigquery.TimePartitioningType.DAY,
             field="updated_at",
@@ -129,270 +137,117 @@ def load_complaint_facts(file_name, data_dir, dataset_id, table_id, google_crede
         ),
         source_format=bigquery.SourceFormat.CSV
     )
-
+    
     load_job = client.load_table_from_dataframe(dataframe, table_ref, job_config=job_config)
     load_job.result()
     print(f'Loaded {load_job.output_rows} rows into {table_ref}')
+
+@task 
+def load_complaint_facts(file_name, data_dir, dataset_id, table_id, google_credentials):
+    schema=[
+        bigquery.SchemaField("user_id", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("complaint_id", "STRING", "NULLABLE"),
+        bigquery.SchemaField("complaint_process_id", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("admin_id", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("total_complaints", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("sum_verification", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("sum_onprogress", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("sum_resolved", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("sum_rejected", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("sum_deleted", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("sum_public", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("sum_private", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("process_time", "FLOAT", "NULLABLE"),
+        bigquery.SchemaField("user_rejected_complaints", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("user_resolved_complaints", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("last_complaints", "STRING", "NULLABLE"),
+        bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
+    ]
+    load_facts(file_name, data_dir, dataset_id, table_id, google_credentials, schema)
 
 @task
 def load_news_facts(file_name, data_dir, dataset_id, table_id, google_credentials):
-    client = bigquery.Client.from_service_account_json(google_credentials)
-    
-    partition_date_ymd = file_name.split('_')[-1].split('.')[0]
-    partition_date = datetime.strptime(partition_date_ymd, '%Y-%m-%d').strftime('%Y%m%d')
-    partition_datetime = datetime.strptime(partition_date_ymd, '%Y-%m-%d')
-    
-    table_ref = f"{dataset_id}.{table_id}${partition_date}"
-    
-    file_path = os.path.join(data_dir, file_name)
-    dataframe = pd.read_csv(file_path)
-
-    dataframe['updated_at'] = partition_datetime
-
-    job_config = bigquery.LoadJobConfig(
-        create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        schema=[
-            bigquery.SchemaField("admin_id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("news_id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("least_followed_category", "STRING", "NULLABLE"),
-            bigquery.SchemaField("least_followed_category_likes", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("most_followed_category", "STRING", "NULLABLE"),
-            bigquery.SchemaField("most_followed_category_likes", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("last_created_news", "TIMESTAMP", "NULLABLE"),
-            bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
-        ],
-        time_partitioning=bigquery.TimePartitioning(
-            type_=bigquery.TimePartitioningType.DAY,
-            field="updated_at",
-            require_partition_filter=True
-        ),
-        source_format=bigquery.SourceFormat.CSV
-    )
-
-    load_job = client.load_table_from_dataframe(dataframe, table_ref, job_config=job_config)
-    load_job.result()
-    print(f'Loaded {load_job.output_rows} rows into {table_ref}')
+    schema=[
+        bigquery.SchemaField("admin_id", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("news_id", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("least_followed_category", "STRING", "NULLABLE"),
+        bigquery.SchemaField("least_followed_category_likes", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("most_followed_category", "STRING", "NULLABLE"),
+        bigquery.SchemaField("most_followed_category_likes", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("last_created_news", "TIMESTAMP", "NULLABLE"),
+        bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
+    ]
+    load_facts(file_name, data_dir, dataset_id, table_id, google_credentials, schema)
 
 @task
 def load_complaints(file_name, data_dir, dataset_id, table_id, google_credentials):
-    client = bigquery.Client.from_service_account_json(google_credentials)
-    
-    partition_date_ymd = file_name.split('_')[-1].split('.')[0]
-    partition_date = datetime.strptime(partition_date_ymd, '%Y-%m-%d').strftime('%Y%m%d')
-    partition_datetime = datetime.strptime(partition_date_ymd, '%Y-%m-%d')
-    
-    table_ref = f"{dataset_id}.{table_id}${partition_date}"
-    
-    file_path = os.path.join(data_dir, file_name)
-    dataframe = pd.read_csv(file_path)
-    
-    for col in ['created_at', 'updated_at', 'deleted_at']:
-        if col in dataframe.columns:
-            dataframe[col] = pd.to_datetime(dataframe[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
-
-    dataframe['updated_at'] = partition_datetime.strftime('%Y-%m-%d %H:%M:%S')
-
-    job_config = bigquery.LoadJobConfig(
-        create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        schema=[
-            bigquery.SchemaField("id", "STRING", "NULLABLE"),
-            bigquery.SchemaField("description", "STRING", "NULLABLE"),
-            bigquery.SchemaField("address", "STRING", "NULLABLE"),
-            bigquery.SchemaField("type", "STRING", "NULLABLE"),
-            bigquery.SchemaField("total_likes", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("created_at", "TIMESTAMP", "REQUIRED"),
-            bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
-            bigquery.SchemaField("deleted_at", "TIMESTAMP", "NULLABLE"),
-        ],
-        time_partitioning=bigquery.TimePartitioning(
-            type_=bigquery.TimePartitioningType.DAY,
-            field="updated_at",
-            require_partition_filter=True
-        ),
-        source_format=bigquery.SourceFormat.CSV
-    )
-
-    load_job = client.load_table_from_dataframe(dataframe, table_ref, job_config=job_config)
-    load_job.result()
-    print(f'Loaded {load_job.output_rows} rows into {table_ref}')
+    schema = [
+        bigquery.SchemaField("id", "STRING", "NULLABLE"),
+        bigquery.SchemaField("description", "STRING", "NULLABLE"),
+        bigquery.SchemaField("address", "STRING", "NULLABLE"),
+        bigquery.SchemaField("type", "STRING", "NULLABLE"),
+        bigquery.SchemaField("total_likes", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("created_at", "TIMESTAMP", "REQUIRED"),
+        bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
+        bigquery.SchemaField("deleted_at", "TIMESTAMP", "NULLABLE"),
+    ]
+    load_data(file_name, data_dir, dataset_id, table_id, google_credentials, schema)
 
 @task
 def load_users(file_name, data_dir, dataset_id, table_id, google_credentials):
-    client = bigquery.Client.from_service_account_json(google_credentials)
-    
-    partition_date_ymd = file_name.split('_')[-1].split('.')[0]
-    partition_date = datetime.strptime(partition_date_ymd, '%Y-%m-%d').strftime('%Y%m%d')
-    partition_datetime = datetime.strptime(partition_date_ymd, '%Y-%m-%d')
-    
-    table_ref = f"{dataset_id}.{table_id}${partition_date}"
-    
-    file_path = os.path.join(data_dir, file_name)
-    dataframe = pd.read_csv(file_path)
-    
-    for col in ['created_at', 'updated_at', 'deleted_at']:
-        if col in dataframe.columns:
-            dataframe[col] = pd.to_datetime(dataframe[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
-
-    dataframe['updated_at'] = partition_datetime.strftime('%Y-%m-%d %H:%M:%S')
-
-    job_config = bigquery.LoadJobConfig(
-        create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        schema=[
-            bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("name", "STRING", "NULLABLE"),
-            bigquery.SchemaField("email", "STRING", "NULLABLE"),
-            bigquery.SchemaField("telephone_number", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("created_at", "TIMESTAMP", "REQUIRED"),
-            bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
-            bigquery.SchemaField("deleted_at", "TIMESTAMP", "NULLABLE"),
-        ],
-        time_partitioning=bigquery.TimePartitioning(
-            type_=bigquery.TimePartitioningType.DAY,
-            field="updated_at",
-            require_partition_filter=True
-        ),
-        source_format=bigquery.SourceFormat.CSV
-    )
-
-    load_job = client.load_table_from_dataframe(dataframe, table_ref, job_config=job_config)
-    load_job.result()
-    print(f'Loaded {load_job.output_rows} rows into {table_ref}')
+    schema = [
+        bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("name", "STRING", "NULLABLE"),
+        bigquery.SchemaField("email", "STRING", "NULLABLE"),
+        bigquery.SchemaField("telephone_number", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("created_at", "TIMESTAMP", "REQUIRED"),
+        bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
+        bigquery.SchemaField("deleted_at", "TIMESTAMP", "NULLABLE"),
+    ]
+    load_data(file_name, data_dir, dataset_id, table_id, google_credentials, schema)
 
 @task
 def load_admins(file_name, data_dir, dataset_id, table_id, google_credentials):
-    client = bigquery.Client.from_service_account_json(google_credentials)
-    
-    partition_date_ymd = file_name.split('_')[-1].split('.')[0]
-    partition_date = datetime.strptime(partition_date_ymd, '%Y-%m-%d').strftime('%Y%m%d')
-    partition_datetime = datetime.strptime(partition_date_ymd, '%Y-%m-%d')
-    
-    table_ref = f"{dataset_id}.{table_id}${partition_date}"
-    
-    file_path = os.path.join(data_dir, file_name)
-    dataframe = pd.read_csv(file_path)
-    
-    for col in ['created_at', 'updated_at', 'deleted_at']:
-        if col in dataframe.columns:
-            dataframe[col] = pd.to_datetime(dataframe[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
-
-    dataframe['updated_at'] = partition_datetime.strftime('%Y-%m-%d %H:%M:%S')
-
-    job_config = bigquery.LoadJobConfig(
-        create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        schema=[
-            bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("name", "STRING", "NULLABLE"),
-            bigquery.SchemaField("email", "STRING", "NULLABLE"),
-            bigquery.SchemaField("telephone_number", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("is_super_admin", "BOOLEAN", "NULLABLE"),
-            bigquery.SchemaField("created_at", "TIMESTAMP", "REQUIRED"),
-            bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
-            bigquery.SchemaField("deleted_at", "TIMESTAMP", "NULLABLE"),
-        ],
-        time_partitioning=bigquery.TimePartitioning(
-            type_=bigquery.TimePartitioningType.DAY,
-            field="updated_at",
-            require_partition_filter=True
-        ),
-        source_format=bigquery.SourceFormat.CSV
-    )
-
-    load_job = client.load_table_from_dataframe(dataframe, table_ref, job_config=job_config)
-    load_job.result()
-    print(f'Loaded {load_job.output_rows} rows into {table_ref}')
+    schema = [
+        bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("name", "STRING", "NULLABLE"),
+        bigquery.SchemaField("email", "STRING", "NULLABLE"),
+        bigquery.SchemaField("telephone_number", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("is_super_admin", "BOOLEAN", "NULLABLE"),
+        bigquery.SchemaField("created_at", "TIMESTAMP", "REQUIRED"),
+        bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
+        bigquery.SchemaField("deleted_at", "TIMESTAMP", "NULLABLE"),
+    ]
+    load_data(file_name, data_dir, dataset_id, table_id, google_credentials, schema)
 
 @task
 def load_complaint_processes(file_name, data_dir, dataset_id, table_id, google_credentials):
-    client = bigquery.Client.from_service_account_json(google_credentials)
-    
-    partition_date_ymd = file_name.split('_')[-1].split('.')[0]
-    partition_date = datetime.strptime(partition_date_ymd, '%Y-%m-%d').strftime('%Y%m%d')
-    partition_datetime = datetime.strptime(partition_date_ymd, '%Y-%m-%d')
-    
-    table_ref = f"{dataset_id}.{table_id}${partition_date}"
-    
-    file_path = os.path.join(data_dir, file_name)
-    dataframe = pd.read_csv(file_path)
-    
-    for col in ['created_at', 'updated_at', 'deleted_at']:
-        if col in dataframe.columns:
-            dataframe[col] = pd.to_datetime(dataframe[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
-
-    dataframe['updated_at'] = partition_datetime.strftime('%Y-%m-%d %H:%M:%S')
-
-    job_config = bigquery.LoadJobConfig(
-        create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        schema=[
-            bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("complaint_id", "STRING", "NULLABLE"),
-            bigquery.SchemaField("status", "STRING", "NULLABLE"),
-            bigquery.SchemaField("message", "STRING", "NULLABLE"),
-            bigquery.SchemaField("created_at", "TIMESTAMP", "REQUIRED"),
-            bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
-            bigquery.SchemaField("deleted_at", "TIMESTAMP", "NULLABLE"),
-        ],
-        time_partitioning=bigquery.TimePartitioning(
-            type_=bigquery.TimePartitioningType.DAY,
-            field="updated_at",
-            require_partition_filter=True
-        ),
-        source_format=bigquery.SourceFormat.CSV
-    )
-
-    load_job = client.load_table_from_dataframe(dataframe, table_ref, job_config=job_config)
-    load_job.result()
-    print(f'Loaded {load_job.output_rows} rows into {table_ref}')
+    schema = [
+        bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("complaint_id", "STRING", "NULLABLE"),
+        bigquery.SchemaField("status", "STRING", "NULLABLE"),
+        bigquery.SchemaField("message", "STRING", "NULLABLE"),
+        bigquery.SchemaField("created_at", "TIMESTAMP", "REQUIRED"),
+        bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
+        bigquery.SchemaField("deleted_at", "TIMESTAMP", "NULLABLE"),
+    ]
+    load_data(file_name, data_dir, dataset_id, table_id, google_credentials, schema)
 
 @task
 def load_news(file_name, data_dir, dataset_id, table_id, google_credentials):
-    client = bigquery.Client.from_service_account_json(google_credentials)
-    
-    partition_date_ymd = file_name.split('_')[-1].split('.')[0]
-    partition_date = datetime.strptime(partition_date_ymd, '%Y-%m-%d').strftime('%Y%m%d')
-    partition_datetime = datetime.strptime(partition_date_ymd, '%Y-%m-%d')
-    
-    table_ref = f"{dataset_id}.{table_id}${partition_date}"
-    
-    file_path = os.path.join(data_dir, file_name)
-    dataframe = pd.read_csv(file_path)
-    
-    for col in ['created_at', 'updated_at', 'deleted_at']:
-        if col in dataframe.columns:
-            dataframe[col] = pd.to_datetime(dataframe[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
-
-    dataframe['updated_at'] = partition_datetime.strftime('%Y-%m-%d %H:%M:%S')
-
-    job_config = bigquery.LoadJobConfig(
-        create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
-        write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-        schema=[
-            bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("category", "STRING", "NULLABLE"),
-            bigquery.SchemaField("title", "STRING", "NULLABLE"),
-            bigquery.SchemaField("total_likes", "INTEGER", "NULLABLE"),
-            bigquery.SchemaField("created_at", "TIMESTAMP", "REQUIRED"),
-            bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
-            bigquery.SchemaField("deleted_at", "TIMESTAMP", "NULLABLE"),
-        ],
-        time_partitioning=bigquery.TimePartitioning(
-            type_=bigquery.TimePartitioningType.DAY,
-            field="updated_at",
-            require_partition_filter=True
-        ),
-        source_format=bigquery.SourceFormat.CSV
-    )
-
-    load_job = client.load_table_from_dataframe(dataframe, table_ref, job_config=job_config)
-    load_job.result()
-    print(f'Loaded {load_job.output_rows} rows into {table_ref}')
+    schema = [
+        bigquery.SchemaField("id", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("category", "STRING", "NULLABLE"),
+        bigquery.SchemaField("title", "STRING", "NULLABLE"),
+        bigquery.SchemaField("total_likes", "INTEGER", "NULLABLE"),
+        bigquery.SchemaField("created_at", "TIMESTAMP", "REQUIRED"),
+        bigquery.SchemaField("updated_at", "TIMESTAMP", "REQUIRED"),
+        bigquery.SchemaField("deleted_at", "TIMESTAMP", "NULLABLE"),
+    ]
+    load_data(file_name, data_dir, dataset_id, table_id, google_credentials, schema)
 
 ## FLOW
-@flow
+@flow(task_runner=DaskTaskRunner())
 def etl_flow():
     CATEGORY_MAPPING = {
         1: "Kesehatan",
@@ -410,7 +265,6 @@ def etl_flow():
     expected_start_time = context.flow_run.expected_start_time.strftime('%Y-%m-%d')
     data_directory = f'cleaned_data/{expected_start_time}'
     
-    # Log the current working directory and environment information
     print("Current working directory:", os.getcwd())
     
     try:
@@ -678,6 +532,5 @@ def etl_flow():
         elif file_name.startswith('news'):
             load_news(file_name, data_directory, 'dim_tables', 'dim_news', config['GOOGLE_APPLICATION_CREDENTIALS'])
 
-# Run the flow
 if __name__ == "__main__":
     etl_flow()
