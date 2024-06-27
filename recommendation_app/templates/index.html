@@ -3,67 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complaint Response Bot</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-        }
-        .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh; 
-            padding: 20px;
-            overflow: auto; 
-        }
-        iframe {
-            width: 70%;
-            max-width: 75%;
-            height: 1200px; 
-            margin-bottom: 20px; 
-        }
-        h1 {
-            text-align: center;
-        }
-        form {
-            text-align: center;
-            margin-bottom: 20px; 
-        }
-        .result {
-            margin-top: 20px;
-            white-space: pre-wrap;
-            max-width: 100%;
-            overflow-x: auto;
-        }
-        @media (max-width: 768px) {
-            iframe {
-                width: 100%;
-            }
-        }
-    </style>
+    <title>Complaint Form</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <div class="container">
-        <iframe src="https://lookerstudio.google.com/embed/reporting/601e88b0-501a-4acd-a4d4-38b345b06258/page/N2i3D" frameborder="0" style="border:0" allowfullscreen sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
-        <h1>Complaint Response Bot</h1>
-        <form id="complaintForm" method="POST">
-            <label for="id_complaint">Masukkan ID Complaint:</label>
+        <h1>Complaint Recommendation</h1>
+        <form id="complaintForm">
+            <label for="id_complaint">Complaint ID:</label>
             <input type="text" id="id_complaint" name="id_complaint" required>
-            <button type="submit">Submit</button>
+            <input type="submit" value="Submit">
         </form>
-
-        <div id="resultContainer" class="result">
-            <!-- Result will be dynamically inserted here -->
-        </div>
+        <div id="resultContainer"></div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         $(document).ready(function() {
             $('#complaintForm').on('submit', function(e) {
-                e.preventDefault(); // Prevent default form submission
+                e.preventDefault();
 
                 var id_complaint = $('#id_complaint').val();
 
@@ -72,13 +31,14 @@
                     url: '/get_recommendation',
                     data: { id_complaint: id_complaint },
                     success: function(response) {
+                        console.log(response);
                         var hasil = response.hasil;
                         var complaint = response.complaint;
 
                         var resultHtml = '<h2>Hasil Analisis Dan Rekomendasi Jawaban:</h2>';
                         resultHtml += '<p><strong>Complaint ID:</strong> ' + id_complaint + '</p>';
                         resultHtml += '<p><strong>Complaint:</strong> ' + complaint + '</p>';
-                        resultHtml += '<pre>' + hasil + '</pre>';
+                        resultHtml += '<p><strong>Rekomendasi Jawaban:</strong><br>' + marked.parse(hasil) + '</p>';
                         $('#resultContainer').html(resultHtml);
                     },
                     error: function(error) {
