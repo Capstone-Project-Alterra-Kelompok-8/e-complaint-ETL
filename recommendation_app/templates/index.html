@@ -5,67 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Complaint Form</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-        }
-        .container {
-            width: 50%;
-            margin: 50px auto;
-            background: #fff;
-            padding: 20px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border-radius: 5px;
-        }
-        h1, h2 {
-            text-align: center;
-            color: #333;
-        }
-        form {
-            display: flex;
-            flex-direction: column;
-        }
-        label {
-            margin-bottom: 5px;
-            color: #333;
-        }
-        input[type="text"], input[type="submit"] {
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        input[type="submit"] {
-            background-color: #007BFF;
-            color: #fff;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-        input[type="submit"]:hover {
-            background-color: #0056b3;
-        }
-        #resultContainer {
-            margin-top: 20px;
-            padding: 10px;
-            background: #e9ecef;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        pre {
-            background: #f8f9fa;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            overflow: auto;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Complaint Form</h1>
+        <h1>Complaint Recommendation</h1>
         <form id="complaintForm">
             <label for="id_complaint">Complaint ID:</label>
             <input type="text" id="id_complaint" name="id_complaint" required>
@@ -73,11 +17,12 @@
         </form>
         <div id="resultContainer"></div>
     </div>
-    
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
         $(document).ready(function() {
             $('#complaintForm').on('submit', function(e) {
-                e.preventDefault(); 
+                e.preventDefault();
 
                 var id_complaint = $('#id_complaint').val();
 
@@ -86,13 +31,14 @@
                     url: '/get_recommendation',
                     data: { id_complaint: id_complaint },
                     success: function(response) {
+                        console.log(response);
                         var hasil = response.hasil;
                         var complaint = response.complaint;
 
                         var resultHtml = '<h2>Hasil Analisis Dan Rekomendasi Jawaban:</h2>';
                         resultHtml += '<p><strong>Complaint ID:</strong> ' + id_complaint + '</p>';
                         resultHtml += '<p><strong>Complaint:</strong> ' + complaint + '</p>';
-                        resultHtml += '<pre>' + hasil + '</pre>';
+                        resultHtml += '<p><strong>Rekomendasi Jawaban:</strong><br>' + marked.parse(hasil) + '</p>';
                         $('#resultContainer').html(resultHtml);
                     },
                     error: function(error) {
