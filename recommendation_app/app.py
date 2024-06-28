@@ -40,13 +40,7 @@ def recommendation(id_complaint, dataset):
             """
     analysis_result = model.generate_content(prompt)
     response_text = analysis_result.text
-    max_words_per_line = 10
-    words = response_text.split()
-    formatted_result = '\n'.join(
-        ' '.join(words[i:i + max_words_per_line]) for i in range(0, len(words), max_words_per_line)
-    )
-
-    return formatted_result, complaint
+    return response_text, complaint
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
