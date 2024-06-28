@@ -2,3 +2,4 @@
 credentials/
 .prefectignore
 __pycache__
+etl_flow-deployment.yaml

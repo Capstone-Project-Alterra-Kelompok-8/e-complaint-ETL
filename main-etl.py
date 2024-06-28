@@ -9,6 +9,11 @@ from prefect_dask.task_runners import DaskTaskRunner
 from prefect.blocks.system import Secret
 from prefect.context import get_run_context
 
+@task
+def set_working_directory():
+    script_directory = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(script_directory)
+
 ## EXTRACT DATA TASKS
 
 @task
@@ -68,23 +73,9 @@ def fill_nan(df, column_name, value):
     df[column_name] = df[column_name].fillna(value)
     return df
 
-@task
-def map_category_id_to_name(df, column_name, mapping):
-    df[column_name] = df[column_name].map(mapping)
-    return df
-
-@task
-def set_working_directory():
-    desired_directory = "/home/raihan12/Documents/e-complaint-ETL"
-    os.chdir(desired_directory)
-
-@task
-def save_data(df, path):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    df.to_csv(path, index=False)
-
 
 ## LOAD DATA TASKS
+    
 def load_facts(file_name, data_dir, dataset_id, table_id, google_credentials, schema):
     client = bigquery.Client.from_service_account_json(google_credentials)
     file_path = os.path.join(data_dir, file_name)
@@ -113,18 +104,11 @@ def load_data(file_name, data_dir, dataset_id, table_id, google_credentials, sch
     
     partition_date_ymd = file_name.split('_')[-1].split('.')[0]
     partition_date = datetime.strptime(partition_date_ymd, '%Y-%m-%d').strftime('%Y%m%d')
-    partition_datetime = datetime.strptime(partition_date_ymd, '%Y-%m-%d')
     
     table_ref = f"{dataset_id}.{table_id}${partition_date}"
     
     file_path = os.path.join(data_dir, file_name)
     dataframe = pd.read_csv(file_path)
-    
-    for col in ['created_at', 'updated_at', 'deleted_at']:
-        if col in dataframe.columns:
-            dataframe[col] = pd.to_datetime(dataframe[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
-    
-    dataframe['updated_at'] = partition_datetime.strftime('%Y-%m-%d %H:%M:%S')
     
     job_config = bigquery.LoadJobConfig(
         create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
@@ -141,6 +125,11 @@ def load_data(file_name, data_dir, dataset_id, table_id, google_credentials, sch
     load_job = client.load_table_from_dataframe(dataframe, table_ref, job_config=job_config)
     load_job.result()
     print(f'Loaded {load_job.output_rows} rows into {table_ref}')
+
+@task
+def save_data(df, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    df.to_csv(path, index=False)
 
 @task 
 def load_complaint_facts(file_name, data_dir, dataset_id, table_id, google_credentials):
@@ -249,16 +238,6 @@ def load_news(file_name, data_dir, dataset_id, table_id, google_credentials):
 ## FLOW
 @flow(task_runner=DaskTaskRunner())
 def etl_flow():
-    CATEGORY_MAPPING = {
-        1: "Kesehatan",
-        2: "Pendidikan",
-        3: "Kependudukan",
-        4: "Keamanan",
-        5: "Infrastruktur",
-        6: "Lingkungan",
-        7: "Transportasi"
-    }
-
     set_working_directory()
 
     context = get_run_context()
@@ -342,17 +321,19 @@ def etl_flow():
         """,
         'news_facts': """
             WITH least_followed_category AS (
-                SELECT category_id, SUM(total_likes) AS total_likes
-                FROM news
-                GROUP BY category_id
-                ORDER BY SUM(total_likes) ASC
+                SELECT c.name AS category, SUM(total_likes) AS likes
+                FROM news n
+                JOIN categories c ON n.category_id = c.id
+                GROUP BY c.name
+                ORDER BY likes ASC
                 LIMIT 1
             ),
             most_followed_category AS (
-                SELECT category_id, SUM(total_likes) AS total_likes
-                FROM news
-                GROUP BY category_id
-                ORDER BY SUM(total_likes) DESC
+                SELECT c.name AS category, SUM(total_likes) AS likes
+                FROM news n
+                JOIN categories c ON n.category_id = c.id
+                GROUP BY c.name
+                ORDER BY likes DESC
                 LIMIT 1
             ),
             last_created_news AS (
@@ -362,10 +343,10 @@ def etl_flow():
             SELECT
                 a.id,
                 n.id AS news_id,
-                lfc.category_id AS least_followed_category,
-                lfc.total_likes AS least_followed_category_likes,
-                mfc.category_id AS most_followed_category,
-                mfc.total_likes AS most_followed_category_likes,
+                lfc.category AS least_followed_category,
+                lfc.likes AS least_followed_category_likes,
+                mfc.category AS most_followed_category,
+                mfc.likes AS most_followed_category_likes,
                 lcn.last_created_news
             FROM
                 news n
@@ -393,7 +374,7 @@ def etl_flow():
             FROM 
                 complaints
             WHERE
-                updated_at = '{expected_start_time}'
+                DATE(updated_at) = '{expected_start_time}'
         """,
         'users': f"""
             SELECT
@@ -407,7 +388,7 @@ def etl_flow():
             FROM 
                 users
             WHERE
-                updated_at = '{expected_start_time}'
+                DATE(updated_at) = '{expected_start_time}'
         """,
         'admins': f"""
             SELECT
@@ -422,7 +403,7 @@ def etl_flow():
             FROM 
                 admins
             WHERE
-                updated_at = '{expected_start_time}'
+                DATE(updated_at) = '{expected_start_time}'
         """,
         'complaint_processes': f"""
             SELECT
@@ -436,21 +417,23 @@ def etl_flow():
             FROM 
                 complaint_processes
             WHERE
-                updated_at = '{expected_start_time}'
+                DATE(updated_at) = '{expected_start_time}'
         """,
         'news': f"""
             SELECT
-                id,
-                category_id,
-                title,
-                total_likes,
-                created_at,
-                updated_at,
-                deleted_at
+                n.id,
+                c.name AS category,
+                n.title,
+                n.total_likes,
+                n.created_at,
+                n.updated_at,
+                n.deleted_at
             FROM 
-                news
+                news n
+            JOIN
+                categories c ON n.category_id = c.id
             WHERE
-                updated_at = '{expected_start_time}'
+                DATE(n.updated_at) = '{expected_start_time}'
         """
     }
 
@@ -501,10 +484,6 @@ def etl_flow():
     admin_df = filter_and_convert(admin_df, 'telephone_number')
 
     complaint_facts_df = fill_nan(complaint_facts_df, 'process_time', 0)
-
-    news_df = map_category_id_to_name(news_df, 'category', CATEGORY_MAPPING)
-    news_facts_df = map_category_id_to_name(news_facts_df, 'least_followed_category', CATEGORY_MAPPING)
-    news_facts_df = map_category_id_to_name(news_facts_df, 'most_followed_category', CATEGORY_MAPPING)
 
     # Save data
     save_data(complaint_facts_df, f"cleaned_data/{expected_start_time}/complaint_facts_{expected_start_time}.csv")
